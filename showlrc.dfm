@@ -1,0 +1,36 @@
+object frm_lrc: Tfrm_lrc
+  Left = 526
+  Top = 665
+  BorderStyle = bsNone
+  Caption = 'frm_lrc'
+  ClientHeight = 71
+  ClientWidth = 463
+  Color = clSilver
+  TransparentColorValue = clSilver
+  UseDockManager = True
+  Font.Charset = DEFAULT_CHARSET
+  Font.Color = clWindowText
+  Font.Height = -11
+  Font.Name = 'Tahoma'
+  Font.Style = []
+  OldCreateOrder = False
+  Position = poDesigned
+  PixelsPerInch = 96
+  TextHeight = 13
+  object Label1: TLabel
+    Left = 0
+    Top = 52
+    Width = 463
+    Height = 19
+    Align = alBottom
+    Caption = 'Label1'
+    Font.Charset = GB2312_CHARSET
+    Font.Color = clWindowText
+    Font.Height = -19
+    Font.Name = #23435#20307
+    Font.Style = []
+    ParentFont = False
+    ExplicitTop = 59
+    ExplicitWidth = 60
+  end
+end

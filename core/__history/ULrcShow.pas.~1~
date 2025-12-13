@@ -1,0 +1,212 @@
+unit ULyricShow;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  Vcl.StdCtrls, Vcl.ExtCtrls, Winapi.GDIPAPI, Winapi.GDIPOBJ, Winapi.ActiveX,
+  Vcl.Menus,
+
+  GDILyrics;
+
+type
+  TfrmLyricShow = class(TForm)
+    tmr1: TTimer;
+    pmLyric: TPopupMenu;
+    N2: TMenuItem;
+    N3: TMenuItem;
+    N4: TMenuItem;
+    N5: TMenuItem;
+    LRC1: TMenuItem;
+    procedure FormCreate(Sender: TObject);
+    procedure tmr1Timer(Sender: TObject);
+    procedure FormMouseEnter(Sender: TObject);
+    procedure FormMouseLeave(Sender: TObject);
+    procedure FormMouseDown(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+    procedure FormDestroy(Sender: TObject);
+    procedure N3Click(Sender: TObject);
+    procedure N4Click(Sender: TObject);
+    procedure N5Click(Sender: TObject);
+    procedure FormMouseMove(Sender: TObject; Shift: TShiftState; X, Y: Integer);
+    procedure FormMouseUp(Sender: TObject; Button: TMouseButton;
+      Shift: TShiftState; X, Y: Integer);
+  private
+    { Private declarations }
+
+    FDx, FDy: Integer;
+    FMouseDown: Boolean;
+    procedure WMMoving(var Msg: TWMMoving); message WM_MOVING;
+  public
+
+  protected
+    procedure CreateParams(var Params: TCreateParams); override;
+
+  end;
+
+var
+  frmLyricShow: TfrmLyricShow;
+
+  gGDILyric : TGDIDrawLyric;
+
+  function LyricTextW(s:string):Integer;
+implementation
+
+{$R *.dfm}
+
+uses
+  System.Types, Defines;
+
+
+function LyricTextW(s:string):Integer;
+begin
+  Result := frmLyricShow.Canvas.TextWidth(s);
+end;
+
+procedure TfrmLyricShow.FormCreate(Sender: TObject);
+var
+  R: TRect;
+begin
+  ParentWindow := GetDesktopWindow;
+  // 加载资源中的图片
+  SetWindowPos(Self.Handle, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE Or SWP_NOSIZE);
+
+  gGDILyric := TGDIDrawLyric.Create(Handle);
+
+  Self.Width := Screen.Width - 300;
+  Self.Height := 140;
+  Self.Left := Screen.Width div 2 - Self.Width div 2;
+  SystemParametersInfo(SPI_GETWORKAREA, 0, @R, 0);
+  Self.Top := R.Bottom - Self.Height;
+
+  gGDILyric.SetWidthAndHeight(Self.Width, Self.Height);
+  gGDILyric.ShowFlags := sfSingle;
+  gGDILyric.FirstString := '我的音乐我做主';
+  gGDILyric.FirstStrWidth := Canvas.TextWidth(gGDILyric.FirstString);
+  gGDILyric.DrawLyricBitmapFirst();
+end;
+
+procedure TfrmLyricShow.FormDestroy(Sender: TObject);
+begin
+  gGDILyric.Free;
+end;
+
+procedure TfrmLyricShow.FormMouseDown(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+  //ReleaseCapture;
+  //Perform(WM_SYSCOMMAND, SC_MOVE + 1, 0);
+  if ssLeft in Shift then
+  begin
+     gGDILyric.ShowBack := True;
+    FDx := X;
+    FDy := Y;
+  end;
+  FMouseDown := ssRight in Shift;
+end;
+
+procedure TfrmLyricShow.FormMouseEnter(Sender: TObject);
+begin
+  gGDILyric.ShowBack := True;
+  FMouseDown := False;
+end;
+
+procedure TfrmLyricShow.FormMouseLeave(Sender: TObject);
+begin
+ if not FMouseDown then
+   gGDILyric.ShowBack := False;
+end;
+
+procedure TfrmLyricShow.FormMouseMove(Sender: TObject; Shift: TShiftState; X,
+  Y: Integer);
+var
+  R:TRect;
+begin
+   if ssLeft in Shift then
+   begin
+     SystemParametersInfo(SPI_GETWORKAREA, 0, @R, 0);
+     if (Top + (Y - Fdy) < 0) or
+        (Top + (Y - FDy) > Screen.Height - (Self.Height + (Screen.Height - R.Bottom)))
+     then Exit;
+
+     Self.SetBounds(Self.Left + (X - FDx), Self.Top + (Y - FDy), Self.Width, Self.Height);
+   end;
+end;
+
+procedure TfrmLyricShow.FormMouseUp(Sender: TObject; Button: TMouseButton;
+  Shift: TShiftState; X, Y: Integer);
+begin
+   //FMouseDown := not(ssRight in Shift);
+end;
+
+procedure TfrmLyricShow.N3Click(Sender: TObject);
+begin
+  gGDILyric.SetFontColor(lfcBlue);
+  FMouseDown := False;
+end;
+
+procedure TfrmLyricShow.N4Click(Sender: TObject);
+begin
+  gGDILyric.SetFontColor(lfcRed);
+  FMouseDown := False;
+end;
+
+procedure TfrmLyricShow.N5Click(Sender: TObject);
+begin
+  gGDILyric.SetFontColor(lfcGreen);
+  FMouseDown := False;
+end;
+
+procedure TfrmLyricShow.tmr1Timer(Sender: TObject);
+begin
+ if Visible then
+
+  SetProcessWorkingSetSize(GetCurrentProcess, $FFFFFFFF, $FFFFFFFF);
+end;
+
+procedure TfrmLyricShow.WMMoving(var Msg: TWMMoving);
+var
+  R: TRect;
+begin
+  inherited;
+
+  with Msg.DragRect^ do
+  begin
+
+    if Left < 0 then
+    begin
+      Left := 0;
+      Right := Left + Self.Width;
+    end;
+
+    if Top < 0 then
+    begin
+      Top := 0;
+      Bottom := Top + Self.Height;
+    end;
+
+    if Right > Screen.Width then
+    begin
+      Right := Screen.Width;
+      Left := Right - Self.Width;
+    end;
+
+    SystemParametersInfo(SPI_GETWORKAREA, 0, @R, 0);
+    if Bottom > Screen.Height - (Screen.Height - R.Height) { Screen.Height }
+    then
+    begin
+      Bottom := Screen.Height - (Screen.Height - R.Height);
+      Top := Bottom - Self.Height;
+    end;
+
+  end;
+end;
+
+procedure TfrmLyricShow.CreateParams(var Params: TCreateParams);
+begin
+  inherited CreateParams(Params);
+  Params.WinClassName := 'LyricShow';
+end;
+
+end.

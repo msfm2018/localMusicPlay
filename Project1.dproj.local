@@ -1,0 +1,41 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<BorlandProject>
+	<Transactions>
+    <Transaction>1899-12-30 00:00:00.000.889,E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\showlrc.pas=E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\Unit2.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.860,=C:\umusic\Unit4.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.541,=C:\umusic\Unit4.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.452,C:\umusic\Unit4.pas=C:\umusic\u_songwords.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.671,E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\showlrc.pas=</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.452,C:\umusic\Unit4.dfm=C:\umusic\u_songwords.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.195,=D:\91\umusic\Unit4.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.889,E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\showlrc.dfm=E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\Unit2.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.200,=E:\umusic\umusic\Unit3.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.965,C:\umusic\UrlSonglist.pas=C:\umusic\UrlSongs.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.050,=E:\umusic\umusic\u_BmpUnit.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.138,C:\umusic\localSongList.dfm=C:\umusic\Unit4.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.294,C:\umusic\localSongList.dfm=C:\umusic\localSongs.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.772,C:\umusic\UrlSonglist.pas=C:\umusic\Songlist.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.247,C:\umusic\Unit2.pas=</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.872,=D:\umusic\core\ULyricShow.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.082,=D:\91\umusic\Unit3.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.536,C:\umusic\u_songwords.dfm=C:\umusic\u_words.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.229,D:\91\umusic\Animation.pas=</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.277,D:\91\umusic\Animation.pas=D:\91\umusic\Unit4.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.661,D:\91\umusic\Songlist.dfm=D:\91\umusic\Unit3.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.197,=D:\umusic\core\Defines.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.289,=E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\Unit2.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.772,C:\umusic\UrlSonglist.dfm=C:\umusic\Songlist.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.965,C:\umusic\UrlSonglist.dfm=C:\umusic\UrlSongs.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.277,D:\91\umusic\Animation.dfm=D:\91\umusic\Unit4.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.859,=E:\delphi-test\delphi-test - 副本 (2)\umusic\umusic\Unit2.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.138,C:\umusic\localSongList.pas=C:\umusic\Unit4.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.294,C:\umusic\localSongList.pas=C:\umusic\localSongs.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.536,C:\umusic\u_songwords.pas=C:\umusic\u_words.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.661,D:\91\umusic\Songlist.pas=D:\91\umusic\Unit3.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.980,=C:\Users\Administrator\Desktop\umusic\umusic\Unit3.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.535,D:\umusic\core\ULrcShow.dfm=D:\umusic\core\ULyricShow.dfm</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.535,D:\umusic\core\ULrcShow.pas=D:\umusic\core\ULyricShow.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.783,=D:\umusic\core\GDILyrics.pas</Transaction>
+    <Transaction>1899-12-30 00:00:00.000.298,C:\Users\Administrator\Desktop\umusic\umusic\Unit3.pas=C:\Users\Administrator\Desktop\umusic\umusic\core.pas</Transaction>
+  </Transactions>
+</BorlandProject>
