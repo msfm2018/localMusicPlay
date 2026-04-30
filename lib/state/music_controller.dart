@@ -144,4 +144,13 @@ final ScrollController scrollController = ScrollController();
 
     // print("MusicController 已安全销毁");
   }
+  void pause() {
+   repo.player.player.pause();
+  isPlaying.value = false;
+}
+
+void playCurrent() {
+   repo.player.player.play();
+  isPlaying.value = true;
+}
 }
