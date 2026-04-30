@@ -16,6 +16,7 @@ import 'package:media_kit_video/media_kit_video.dart';
 
 final showSidebar = true.obs;
 final MusicController controller = MusicController();
+final GlobalKey<VideoState> videoKey = GlobalKey<VideoState>();
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -162,7 +163,7 @@ class _HomePageState extends State<HomePage> {
                                             onExit: _onMouseExitVideo,
                                             child: Stack(
                                               children: [
-                                                Video(controller: controller.videoController),
+                                                Video(key: videoKey, controller: controller.videoController),
                                                 Center(
                                                   child: Rx(() {
                                                     return AnimatedOpacity(
@@ -201,6 +202,9 @@ class _HomePageState extends State<HomePage> {
                                                       } else {
                                                         controller.playCurrent();
                                                       }
+                                                    },
+                                                    onDoubleTap: () async {
+                                                      await videoKey.currentState?.enterFullscreen();
                                                     },
                                                   ),
                                                 ),
@@ -382,6 +386,10 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+}
+
+Future<void> _enterFullScreen() async {
+  await videoKey.currentState?.enterFullscreen();
 }
 
 Widget _buildSidebarIconButton({required IconData icon, required Color color, required String tooltip, required VoidCallback onPressed}) {
