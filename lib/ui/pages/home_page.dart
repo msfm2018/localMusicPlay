@@ -1,4 +1,3 @@
-// import 'package:bitsdojo_window/bitsdojo_window.dart';
 import 'dart:ui';
 
 import 'package:cv/data/models/music.dart';
@@ -127,11 +126,12 @@ class _HomePageState extends State<HomePage> {
                       );
                     }),
                     Flexible(
-                      fit: FlexFit.tight,
+                      fit: FlexFit.loose, //tight,
                       child: Container(
                         constraints: const BoxConstraints(minWidth: 300),
                         color: const Color(0xee1E1E1E),
-                        child: Column(
+                        child: 
+                        Column(
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(16),
@@ -139,14 +139,11 @@ class _HomePageState extends State<HomePage> {
                                 final song = controller.currentSong;
                                 if (song == null) {
                                   return Center(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(Icons.music_note, size: 80, color: Colors.white24),
-                                        const SizedBox(height: 16),
-                                        Text("等待播放...", style: TextStyle(color: Colors.white38, fontSize: 18)),
-                                      ],
-                                    ),
+                                    child: 
+                                     ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Image.asset('assets/default_cover.jpg', fit: BoxFit.cover),
+                                        ),    
                                   );
                                 }
 
@@ -156,8 +153,8 @@ class _HomePageState extends State<HomePage> {
                                     alignment: Alignment.center,
                                     children: [
                                       if (song.type == MediaType.video)
-                                        SizedBox(
-                                          height: 380,
+                                        AspectRatio(
+                                          aspectRatio: 16 / 9,
                                           child: MouseRegion(
                                             onEnter: _onMouseEnterVideo,
                                             onExit: _onMouseExitVideo,
@@ -187,7 +184,7 @@ class _HomePageState extends State<HomePage> {
                                                         crossAxisAlignment: CrossAxisAlignment.start,
                                                         children: [
                                                           Text(song.name, style: TextStyle(color: Colors.white)),
-                                                          Text("本地音乐", style: TextStyle(color: Colors.white70)),
+                                                          Text("本地音视频", style: TextStyle(color: Colors.white70)),
                                                         ],
                                                       ),
                                                     ),
@@ -217,7 +214,6 @@ class _HomePageState extends State<HomePage> {
                                                   child: AnimatedOpacity(
                                                     opacity: _showProgressBar ? 1.0 : 0.0,
                                                     duration: _isHoveringVideo ? const Duration(milliseconds: 200) : const Duration(milliseconds: 400),
-                                                    // 这里 移除 IgnorePointer，让进度条可以点击
                                                     child: MouseRegion(
                                                       onEnter: (_) {
                                                         setState(() {
@@ -299,18 +295,19 @@ class _HomePageState extends State<HomePage> {
                                 );
                               }),
                             ),
-                            Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
-                              child: PlayerControls(controller: controller),
-                            ),
+                            // Padding(
+                            //   padding: const EdgeInsets.symmetric(horizontal: 16),
+                            //   child: PlayerControls(controller: controller),
+                            // ),
                             const SizedBox(height: 10),
                             Expanded(
                               child: Rx(() {
                                 final list = controller.songs.value;
                                 if (list.isEmpty) {
-                                  return const Center(
-                                    child: Text("列表空空如也，快去导入音乐吧~", style: TextStyle(color: Colors.white, fontSize: 16)),
-                                  );
+                                  return Container();
+                                  //  const Center(
+                                  //   child: Text("列表空空如也，快去导入音乐吧~", style: TextStyle(color: Colors.white, fontSize: 16)),
+                                  // );
                                 }
                                 return ListView.builder(
                                   padding: const EdgeInsets.all(12),
@@ -322,13 +319,14 @@ class _HomePageState extends State<HomePage> {
                                       final isCurrent = controller.currentIndex.value == i;
                                       final isPlaying = controller.isPlaying.value;
                                       return AnimatedScale(
+                                        key: ValueKey(music.path), // 关键修复：添加 ValueKey
                                         scale: isCurrent ? 1.03 : 1.0,
                                         duration: const Duration(milliseconds: 180),
                                         curve: Curves.easeOutCubic,
                                         child: AnimatedContainer(
                                           duration: const Duration(milliseconds: 200),
                                           curve: Curves.easeOutCubic,
-                                          margin: const EdgeInsets.symmetric(vertical: 15),
+                                          margin: const EdgeInsets.symmetric(vertical: 6),
                                           decoration: BoxDecoration(
                                             color: isCurrent ? Colors.greenAccent.withOpacity(0.12) : const Color(0xFF2D2D30),
                                             borderRadius: BorderRadius.circular(14),
@@ -341,18 +339,19 @@ class _HomePageState extends State<HomePage> {
                                             color: Colors.transparent,
                                             borderRadius: BorderRadius.circular(14),
                                             child: ListTile(
-                                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                              visualDensity: VisualDensity.compact,
+                                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                                               leading: SizedBox(
-                                                width: 40,
-                                                height: 40,
+                                                width: 32,
+                                                height: 32,
                                                 child: isCurrent && isPlaying
                                                     ? const MusicVisualizer(speaking: true, barCount: 5)
                                                     : const Icon(Icons.music_note, color: Colors.white70, size: 28),
                                               ),
                                               title: Text(
                                                 music.name,
-                                                style: TextStyle(color: isCurrent ? Colors.white : Colors.white70, fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal, fontSize: 15),
+                                                style: TextStyle(color: isCurrent ? Colors.white : Colors.white70, fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal, fontSize: 13),
                                                 maxLines: 1,
                                                 overflow: TextOverflow.ellipsis,
                                               ),
@@ -384,6 +383,12 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
+
+      // 或者使用悬浮按钮
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () => controller.scrollToTop(),
+      //   child: const Icon(Icons.arrow_upward),
+      // ),
     );
   }
 }

@@ -4,10 +4,11 @@ import '../data/models/music.dart';
 import '../data/repositories/music_repository.dart';
 import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart'; // 必须导入这个
-class MusicController extends ChangeNotifier{
+
+class MusicController extends ChangeNotifier {
   final repo = MusicRepository();
 
-final ScrollController scrollController = ScrollController();
+  final ScrollController scrollController = ScrollController();
 
   final songs = <MediaItem>[].obs;
   final currentIndex = (-1).obs;
@@ -49,8 +50,19 @@ final ScrollController scrollController = ScrollController();
     });
   }
 
+  void scrollToCurrent() {
+    if (currentIndex.value < 0) return;
+
+    // 假设每个 Item 高度固定为 72.0
+    double offset = currentIndex.value * 72.0;
+
+    if (scrollController.hasClients) {
+      scrollController.animateTo(offset, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
+    }
+  }
+
   // 删除单首音乐
-  void removeMusic(int index) {
+  void removeMusic_(int index) {
     // 1. 如果删除的是当前正在播放的，先停掉或切到下一首
     if (currentIndex.value == index) {
       repo.player.player.stop(); // 停止播放
@@ -65,6 +77,32 @@ final ScrollController scrollController = ScrollController();
 
     // 4. 修正 currentIndex，防止越界
     if (currentIndex.value >= songs.value.length && songs.value.isNotEmpty) {
+      currentIndex.value = songs.value.length - 1;
+    }
+  }
+
+  void removeMusic(int index) {
+    // 1. 安全检查
+    if (index < 0 || index >= songs.value.length) return;
+
+    // 2. 如果删除的是当前正在播放的
+    if (currentIndex.value == index) {
+      repo.player.player.stop();
+      isPlaying.value = false;
+    }
+
+    // 3. 执行删除
+    songs.value.removeAt(index);
+    songs.refresh(); // 触发 rxflare 监听器更新 UI
+
+    // 4. 关键：修正 currentIndex
+    if (songs.value.isEmpty) {
+      currentIndex.value = -1; // 列表空了，重置索引
+    } else if (index < currentIndex.value) {
+      // 如果删除的是当前项之前的歌曲，当前索引需要减1以保持指向同一首歌
+      currentIndex.value--;
+    } else if (currentIndex.value >= songs.value.length) {
+      // 如果删除的是最后一项且当前索引溢出，指向新的末尾
       currentIndex.value = songs.value.length - 1;
     }
   }
@@ -86,25 +124,37 @@ final ScrollController scrollController = ScrollController();
 
   MediaItem? get currentSong => currentIndex.value >= 0 && songs.value.isNotEmpty ? songs.value[currentIndex.value] : null;
 
-  Future<void> loadMusic() async {
-    // 建议：如果你之前的 rxflare 实现了 runAsync，这里可以用
-    await songs.runAsync(() async {
-      return await repo.loadMusic();
-    });
-  }
 
-  Future<void> loadVideo() async {
-    // 建议：如果你之前的 rxflare 实现了 runAsync，这里可以用
-    await songs.runAsync(() async {
-      return await repo.loadVideo();
-    });
-  }
 
+Future<void> loadMusic() async {
+  await songs.runAsync(() async {
+    final list = await repo.loadMusic();
+    // 加载完成后，如果有歌曲，自动选中第一首
+    if (list.isNotEmpty) {
+      currentIndex.value = 0;
+    }
+    return list;
+  });
+}
+
+Future<void> loadVideo() async {
+  await songs.runAsync(() async {
+    final list = await repo.loadVideo();
+    // 加载完成后，如果有视频，自动选中第一首
+    if (list.isNotEmpty) {
+      currentIndex.value = 0;
+    }
+    return list;
+  });
+}
   Future<void> play(int index) async {
     await repo.play(index);
 
     currentIndex.value = index;
     isPlaying.value = true;
+
+    // 播放后延迟一小会儿滚动，确保 UI 已经响应索引变化
+    Future.delayed(const Duration(milliseconds: 100), () => scrollToCurrent());
   }
 
   Future<void> toggle() async {
@@ -126,6 +176,7 @@ final ScrollController scrollController = ScrollController();
     final nextIdx = (currentIndex.value + 1) % songs.value.length;
     currentIndex.value = nextIdx;
     isPlaying.value = true;
+    scrollToCurrent(); // 切换下一首自动滚动
   }
 
   Future<void> prev() async {
@@ -135,22 +186,34 @@ final ScrollController scrollController = ScrollController();
     isPlaying.value = true;
   }
 
+  @override
   void dispose() {
-    // 如果 RxState 有自定义销毁逻辑也可以写在这里
+    super.dispose();
     songs.dispose();
     currentIndex.dispose();
     isPlaying.dispose();
-     scrollController.dispose();  
+    scrollController.dispose();
 
     // print("MusicController 已安全销毁");
   }
-  void pause() {
-   repo.player.player.pause();
-  isPlaying.value = false;
-}
 
-void playCurrent() {
-   repo.player.player.play();
-  isPlaying.value = true;
+  void pause() {
+    repo.player.player.pause();
+    isPlaying.value = false;
+  }
+
+  void playCurrent() {
+    repo.player.player.play();
+    isPlaying.value = true;
+  }
+
+  void scrollToTop() {
+  if (scrollController.hasClients) {
+    scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+  }
 }
 }
