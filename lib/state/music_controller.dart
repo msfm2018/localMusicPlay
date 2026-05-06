@@ -50,6 +50,59 @@ class MusicController extends ChangeNotifier {
     });
   }
 
+  // ================== 文件类型判断 ==================
+  MediaType getMediaType(String path) {
+    final ext = path.split('.').last.toLowerCase();
+
+    const audio = ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'wma', 'opus', 'alac'];
+
+    const video = ['mp4', 'mkv', 'avi', 'mov', 'wmv', 'flv', 'webm', 'm4v', 'ts', 'mpg', 'mpeg', '3gp'];
+
+    if (audio.contains(ext)) return MediaType.audio;
+    if (video.contains(ext)) return MediaType.video;
+    return MediaType.unknown;
+  }
+
+  // ================== 双击文件打开 ==================
+  Future<void> openFile(String path) async {
+    final type = getMediaType(path);
+    if (type == MediaType.unknown) return;
+    songs.value.clear();
+    final item = MediaItem(path: path, name: path.split(RegExp(r'[\\/]+')).last, type: type);
+    songs.value.insert(0, item);
+    songs.refresh();
+    currentIndex.value = 0;
+    // 核心修复：确保在打开媒体前，player 状态是干净的
+    await repo.player.player.open(Media(path));
+    isPlaying.value = true;
+
+    // 如果是视频，通知监听者可能需要重绘 Video 组件
+    if (type == MediaType.video) {
+      notifyListeners();
+    }
+  }
+
+  // ================== 多文件加入播放列表 ==================
+  Future<void> openFiles(List<String> paths) async {
+    if (paths.isEmpty) return;
+
+    for (var path in paths) {
+      final type = getMediaType(path);
+      if (type == MediaType.unknown) continue;
+      openFile(path);
+      // songs.value.add(MediaItem(path: path, name: path.split(RegExp(r'[\\/]+')).last, type: type));
+    }
+
+    // songs.refresh();
+
+    // // 如果当前没播放，自动播放第一首
+    // if (currentIndex.value == -1 && songs.value.isNotEmpty) {
+    //   currentIndex.value = 0;
+    //   await repo.player.player.open(Media(songs.value[0].path));
+    //   isPlaying.value = true;
+    // }
+  }
+
   void scrollToCurrent() {
     if (currentIndex.value < 0) return;
 
@@ -58,26 +111,6 @@ class MusicController extends ChangeNotifier {
 
     if (scrollController.hasClients) {
       scrollController.animateTo(offset, duration: const Duration(milliseconds: 300), curve: Curves.easeInOut);
-    }
-  }
-
-  // 删除单首音乐
-  void removeMusic_(int index) {
-    // 1. 如果删除的是当前正在播放的，先停掉或切到下一首
-    if (currentIndex.value == index) {
-      repo.player.player.stop(); // 停止播放
-      isPlaying.value = false;
-    }
-
-    // 2. 从响应式列表中移除
-    songs.value.removeAt(index);
-
-    // 3. 通知 RxFlare 列表已更新（如果是使用 .value = ... 方式则不需要手动 refresh）
-    songs.refresh();
-
-    // 4. 修正 currentIndex，防止越界
-    if (currentIndex.value >= songs.value.length && songs.value.isNotEmpty) {
-      currentIndex.value = songs.value.length - 1;
     }
   }
 
@@ -124,29 +157,28 @@ class MusicController extends ChangeNotifier {
 
   MediaItem? get currentSong => currentIndex.value >= 0 && songs.value.isNotEmpty ? songs.value[currentIndex.value] : null;
 
+  Future<void> loadMusic() async {
+    await songs.runAsync(() async {
+      final list = await repo.loadMusic();
+      // 加载完成后，如果有歌曲，自动选中第一首
+      if (list.isNotEmpty) {
+        currentIndex.value = 0;
+      }
+      return list;
+    });
+  }
 
+  Future<void> loadVideo() async {
+    await songs.runAsync(() async {
+      final list = await repo.loadVideo();
+      // 加载完成后，如果有视频，自动选中第一首
+      if (list.isNotEmpty) {
+        currentIndex.value = 0;
+      }
+      return list;
+    });
+  }
 
-Future<void> loadMusic() async {
-  await songs.runAsync(() async {
-    final list = await repo.loadMusic();
-    // 加载完成后，如果有歌曲，自动选中第一首
-    if (list.isNotEmpty) {
-      currentIndex.value = 0;
-    }
-    return list;
-  });
-}
-
-Future<void> loadVideo() async {
-  await songs.runAsync(() async {
-    final list = await repo.loadVideo();
-    // 加载完成后，如果有视频，自动选中第一首
-    if (list.isNotEmpty) {
-      currentIndex.value = 0;
-    }
-    return list;
-  });
-}
   Future<void> play(int index) async {
     await repo.play(index);
 
@@ -208,12 +240,8 @@ Future<void> loadVideo() async {
   }
 
   void scrollToTop() {
-  if (scrollController.hasClients) {
-    scrollController.animateTo(
-      0,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-    );
+    if (scrollController.hasClients) {
+      scrollController.animateTo(0, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+    }
   }
-}
 }

@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_acrylic/window.dart';
 import 'package:flutter_acrylic/window_effect.dart';
 import 'package:rxflare/rxflare.dart';
+import '../../main.dart';
 import '../../state/music_controller.dart';
 import '../widgets/player_controls.dart';
 import '../widgets/music_visualizer.dart';
@@ -14,7 +15,7 @@ import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
 final showSidebar = true.obs;
-final MusicController controller = MusicController();
+// final MusicController controller = MusicController();
 final GlobalKey<VideoState> videoKey = GlobalKey<VideoState>();
 
 class HomePage extends StatefulWidget {
@@ -160,7 +161,7 @@ class _HomePageState extends State<HomePage> {
                                             onExit: _onMouseExitVideo,
                                             child: Stack(
                                               children: [
-                                                Video(key: videoKey, controller: controller.videoController),
+                                                Video(key: videoKey, controller: controller.videoController,fill: Colors.black,),
                                                 Center(
                                                   child: Rx(() {
                                                     return AnimatedOpacity(

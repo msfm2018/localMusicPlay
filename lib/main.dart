@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart';
+import 'state/music_controller.dart';
 import 'ui/pages/home_page.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
 
-Future<void> main() async {
+final MusicController controller = MusicController();
+Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1. 初始化亚克力效果
@@ -29,7 +31,16 @@ Future<void> main() async {
     await windowManager.focus();
   });
 
+
   runApp(const MyApp());
+  // ✅ 再处理参数（不阻塞 UI）
+  WidgetsBinding.instance.addPostFrameCallback((_) async {
+    if (args.length == 1) {
+      await controller.openFile(args.first);
+    } else if (args.length > 1) {
+      await controller.openFiles(args);
+    }
+  });
 }
 
 class MyApp extends StatelessWidget {

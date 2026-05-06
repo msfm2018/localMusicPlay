@@ -1,4 +1,4 @@
-enum MediaType { audio, video }
+enum MediaType { audio, video,unknown }
 
 class MediaItem {
   final String name;
