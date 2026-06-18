@@ -3,15 +3,15 @@ import 'package:media_kit/media_kit.dart';
 import 'state/music_controller.dart';
 import 'ui/pages/home_page.dart';
 import 'package:window_manager/window_manager.dart';
-import 'package:flutter_acrylic/flutter_acrylic.dart';
+// import 'package:flutter_acrylic/flutter_acrylic.dart';
 
 final MusicController controller = MusicController();
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // 1. 初始化亚克力效果
-  await Window.initialize();
-  await Window.makeTitlebarTransparent(); // 使标题栏透明
+  // await Window.initialize();
+  // await Window.makeTitlebarTransparent(); // 使标题栏透明
   // 初始化 media_kit
   MediaKit.ensureInitialized();
 
@@ -19,10 +19,10 @@ Future<void> main(List<String> args) async {
   await windowManager.ensureInitialized();
 
   WindowOptions windowOptions = const WindowOptions(
-    size: Size(1100, 750),
+    // size: Size(1100, 750),
     center: true,
     backgroundColor: Colors.transparent,
-    skipTaskbar: false,
+    // skipTaskbar: false,
     titleBarStyle: TitleBarStyle.hidden, // 隐藏原生标题栏
   );
 

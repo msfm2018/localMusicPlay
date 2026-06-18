@@ -4,18 +4,12 @@ import 'package:cv/data/models/music.dart';
 import 'package:flutter/gestures.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_acrylic/window.dart';
-import 'package:flutter_acrylic/window_effect.dart';
 import 'package:rxflare/rxflare.dart';
 import '../../main.dart';
-import '../../state/music_controller.dart';
-import '../widgets/player_controls.dart';
-import '../widgets/music_visualizer.dart';
-import 'package:media_kit/media_kit.dart';
 import 'package:media_kit_video/media_kit_video.dart';
 
-final showSidebar = true.obs;
-// final MusicController controller = MusicController();
+final showTopBar = true.obs;
+final showProgressBar = false.obs;
 final GlobalKey<VideoState> videoKey = GlobalKey<VideoState>();
 
 class HomePage extends StatefulWidget {
@@ -27,31 +21,22 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   bool _isHoveringVideo = false;
-  bool _showProgressBar = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _applyAcrylic();
-  }
-
-  void _applyAcrylic() async {
-    await Window.setEffect(effect: WindowEffect.acrylic, color: const Color(0xCC1E1E1E));
-  }
 
   void _onMouseEnterVideo(PointerEnterEvent e) {
-    setState(() {
-      _isHoveringVideo = true;
-      _showProgressBar = true;
-    });
+    _isHoveringVideo = true;
+    showTopBar.value = true;
+    showProgressBar.value = true;
   }
 
   void _onMouseExitVideo(PointerExitEvent e) {
-    setState(() => _isHoveringVideo = false);
-    Future.delayed(const Duration(milliseconds: 800), () {
-      if (!_isHoveringVideo && mounted) {
-        setState(() => _showProgressBar = false);
-      }
+    _isHoveringVideo = false;
+
+    Future.delayed(const Duration(milliseconds: 1200), () {
+      if (!mounted) return;
+      if (_isHoveringVideo) return; // 如果在1.2秒内鼠标又进来了，就不隐藏
+
+      showTopBar.value = false;
+      showProgressBar.value = false;
     });
   }
 
@@ -63,339 +48,412 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // final song = controller.currentSong;
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: Stack(
-        children: [
-          Column(
-            children: [
-              Container(
-                height: 32,
-                color: const Color(0xf6252526),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: DragToMoveArea(
-                        child: const Padding(
-                          padding: EdgeInsets.symmetric(horizontal: 12),
+      body: MouseRegion(
+        onEnter: _onMouseEnterVideo,
+        onExit: _onMouseExitVideo,
+        hitTestBehavior: HitTestBehavior.translucent,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Rx(() {
+                // final song = controller.currentSong;
+           
+                // if (song == null) {
+                //   return Image.asset('assets/default_cover.jpg', fit: BoxFit.cover);
+                // }
+
+                final songsList = controller.songs.value;
+        final index = controller.currentIndex.value;
+
+        // 💡 核心安全防御：判断索引是否合法、列表是否为空
+        if (index < 0 || songsList.isEmpty || index >= songsList.length) {
+          return Image.asset('assets/default_cover.jpg', fit: BoxFit.cover);
+        }
+
+        // 安全地取出当前歌曲
+        final song = songsList[index];
+
+                if (song.type == MediaType.video) {
+                  return
+                  //  Video(key: videoKey, controller: controller.videoController, fill: Colors.black,fit: BoxFit.fill,);
+                  Video(key: ValueKey(song.path), controller: controller.videoController, fill: Colors.black, fit: BoxFit.fill);
+                } else {
+                  return Container(
+                    decoration: const BoxDecoration(
+                      image: DecorationImage(image: AssetImage('assets/default_cover.jpg'), fit: BoxFit.cover),
+                    ),
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                      child: Container(color: Colors.black.withValues(alpha: 0.4)),
+                    ),
+                  );
+                }
+              }),
+            ),
+
+            // 2. 次底层：全屏点击/双击手势层
+            // 💡 修复核心：这里只管视频中间大面积的点击，不要让它把底部的进度条给盖住
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  if (controller.isPlaying.value) {
+                    controller.pause();
+                  } else {
+                    controller.playCurrent();
+                  }
+                },
+                onDoubleTap: () async {
+                  await videoKey.currentState?.enterFullscreen();
+                },
+                // 💡 故意放一个空 child 占位响应手势
+                child: const SizedBox.expand(),
+              ),
+            ),
+
+            // 3. 中间层：暂停/播放大图标
+            Center(
+              child: Rx(() {
+                return AnimatedOpacity(
+                  opacity: controller.isPlaying.value ? 0.0 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  child: const IgnorePointer(
+                    // 图标不响应鼠标，防止挡住点击
+                    child: Icon(
+                      Icons.play_circle_fill,
+                      size: 72,
+                      color: Colors.white,
+                      shadows: [BoxShadow(color: Colors.black54, blurRadius: 8, spreadRadius: 2)],
+                    ),
+                  ),
+                );
+              }),
+            ),
+
+            // 4. 次顶层：底部歌名与控制进度条（放在全屏手势层之上，确保不被拦截）
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Rx(() {
+                final visible = showProgressBar.value;
+                final song = controller.currentSong;
+                if (song == null || song.type != MediaType.video) return const SizedBox.shrink();
+
+                return AnimatedOpacity(
+                  opacity: visible ? 1.0 : 0.0,
+                  duration: _isHoveringVideo ? const Duration(milliseconds: 200) : const Duration(milliseconds: 400),
+                  child: Container(
+                    // 渐变黑底，衬托文字和进度条
+                    decoration: const BoxDecoration(
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black54]),
+                    ),
+                    padding: const EdgeInsets.only(top: 40, bottom: 12, left: 20, right: 20),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          song.name,
+                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Rx(() {
+                          final position = controller.position.value;
+                          final duration = controller.duration.value;
+                          double sliderValue = position.inSeconds.toDouble();
+                          double maxValue = duration.inSeconds.toDouble();
+                          if (sliderValue > maxValue) sliderValue = maxValue;
+
+                          return Column(
+                            children: [
+                              SliderTheme(
+                                data: SliderTheme.of(context).copyWith(
+                                  trackHeight: 4,
+                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
+                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                                  activeTrackColor: Colors.greenAccent,
+                                  inactiveTrackColor: Colors.white24,
+                                  thumbColor: Colors.white,
+                                ),
+                                child: Slider(
+                                  value: sliderValue,
+                                  max: maxValue > 0 ? maxValue : 1.0,
+                                  onChanged: (value) {
+                                    controller.seek(Duration(seconds: value.toInt()));
+                                  },
+                                ),
+                              ),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 12),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(_formatDuration(position), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                    Rx(
+                                      () => TextButton(
+                                        style: TextButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), minimumSize: const Size(40, 20)),
+                                        onPressed: () => controller.cycleSpeed(),
+                                        child: Text("${controller.playSpeed.value}x", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                      ),
+                                    ),
+                                    Text(_formatDuration(duration), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+            ),
+
+            // 5. 最顶层：自定义标题栏（支持隐藏）
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: buildToBar(), // 里面使用上次给你的 Stack + DragToMoveArea 即可
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget buildToBar() {
+    return Rx(() {
+      final visible = showTopBar.value;
+
+      return AnimatedOpacity(
+        opacity: visible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: IgnorePointer(
+          ignoring: !visible, // 隐藏时释放点击权限，透传给底层
+          child: Container(
+            height: 32,
+            color: const Color(0xf6252526),
+            child: Stack(
+              // 💡 改变结构：使用 Stack 分离拖拽区和按钮区
+              children: [
+                // 1. 底层：纯粹的窗口拖拽响应区（填满整行）
+                const Positioned.fill(child: DragToMoveArea(child: SizedBox.expand())),
+
+                // 2. 顶层：真正的按钮与标题内容（忽略拖拽干扰，正常响应手势）
+                Positioned.fill(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
                           child: Align(
                             alignment: Alignment.centerLeft,
                             child: Row(
+                              // 💡 关键：只让非按钮区域触发拖拽，按钮自己保持独立
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                Icon(Icons.music_note, color: Colors.greenAccent, size: 10),
-                                Text("音视频播放器", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                const Icon(Icons.music_note, color: Colors.greenAccent, size: 10),
+                                const SizedBox(width: 4),
+                                const Text("音视频播放器", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                const SizedBox(width: 34),
+
+                                // 本地音乐
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(4),
+                                    hoverColor: Colors.white.withValues(alpha: 0.1),
+                                    splashColor: Colors.white.withValues(alpha: 0.2),
+                                    onTap: () => controller.loadMusic(),
+                                    child: Container(
+                                      height: 32,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      alignment: Alignment.center,
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.library_music, color: Colors.white60, size: 14),
+                                          SizedBox(width: 4),
+                                          Text("本地音乐", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 8), // 稍微加点间距
+                                // 本地视频
+                                Material(
+                                  color: Colors.transparent,
+                                  child: InkWell(
+                                    borderRadius: BorderRadius.circular(4),
+                                    hoverColor: Colors.white.withValues(alpha: 0.1),
+                                    splashColor: Colors.white.withValues(alpha: 0.15),
+                                    onTap: () => controller.loadVideo(),
+                                    child: Container(
+                                      height: 32,
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      alignment: Alignment.center,
+                                      child: const Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.video_library, color: Colors.white60, size: 14),
+                                          SizedBox(width: 4),
+                                          Text("本地视频", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                const SizedBox(width: 8),
+
+                                // 播放速度
+                                Rx(
+                                  () => Material(
+                                    color: Colors.transparent,
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(4),
+                                      hoverColor: Colors.white.withValues(alpha: 0.1),
+                                      splashColor: Colors.white.withValues(alpha: 0.15),
+                                      onTap: () => controller.cycleSpeed(),
+                                      child: Container(
+                                        height: 24,
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                        alignment: Alignment.center,
+                                        child: Text("播放速度 ${controller.playSpeed.value}x", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
                         ),
                       ),
-                    ),
-                    const CustomWindowButtons(),
-                  ],
+                      const CustomWindowButtons(),
+                    ],
+                  ),
                 ),
-              ),
-              Expanded(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Rx(() {
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 280),
-                        curve: Curves.easeInOutCubic,
-                        width: showSidebar.value ? 80 : 0,
-                        child: ClipRect(
-                          child: showSidebar.value
-                              ? Container(
-                                  color: const Color(0xFF1E1E1E),
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.center,
-                                    children: [
-                                      const SizedBox(height: 40),
-                                      _buildSidebarTile(icon: Icons.library_music, onTap: () => controller.loadMusic()),
-                                      const SizedBox(height: 18),
-                                      _buildSidebarTile(icon: Icons.video_library, onTap: () => controller.loadVideo()),
-                                      const Spacer(),
-                                      const Divider(color: Colors.white12),
-                                      const SizedBox(height: 12),
-                                      const Text("v1.0.0", style: TextStyle(color: Colors.white38, fontSize: 12)),
-                                    ],
-                                  ),
-                                )
-                              : const SizedBox(),
-                        ),
-                      );
-                    }),
-                    Flexible(
-                      fit: FlexFit.loose, //tight,
-                      child: Container(
-                        constraints: const BoxConstraints(minWidth: 300),
-                        color: const Color(0xee1E1E1E),
-                        child: 
-                        Column(
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget buildToBar11() {
+    return Rx(() {
+      final visible = showTopBar.value;
+
+      return AnimatedOpacity(
+        opacity: visible ? 1.0 : 0.0,
+        duration: const Duration(milliseconds: 250),
+        child: IgnorePointer(
+          ignoring: !visible, // 隐藏时释放点击权限，透传给底层
+          child: Container(
+            height: 32,
+            color: const Color(0xf6252526),
+            child: Row(
+              children: [
+                Expanded(
+                  child: DragToMoveArea(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: Row(
                           children: [
-                            Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Rx(() {
-                                final song = controller.currentSong;
-                                if (song == null) {
-                                  return Center(
-                                    child: 
-                                     ClipRRect(
-                                          borderRadius: BorderRadius.circular(16),
-                                          child: Image.asset('assets/default_cover.jpg', fit: BoxFit.cover),
-                                        ),    
-                                  );
-                                }
+                            const Icon(Icons.music_note, color: Colors.greenAccent, size: 10),
+                            const SizedBox(width: 4),
+                            const Text("音视频播放器", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                            SizedBox(width: 34),
 
-                                return ClipRRect(
-                                  borderRadius: BorderRadius.circular(24),
-                                  child: Stack(
-                                    alignment: Alignment.center,
+                            Material(
+                              color: Colors.transparent, // 保持背景透明
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(4), // 悬停变色区域的圆角
+                                hoverColor: Colors.white.withValues(alpha: 0.1), // 💡 鼠标进入时的变色效果（10% 透明度的白色）
+                                splashColor: Colors.white.withValues(alpha: 0.2), // 点击时的水波纹颜色
+                                onTap: () => controller.loadMusic(),
+                                child: Container(
+                                  height: 32,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      if (song.type == MediaType.video)
-                                        AspectRatio(
-                                          aspectRatio: 16 / 9,
-                                          child: MouseRegion(
-                                            onEnter: _onMouseEnterVideo,
-                                            onExit: _onMouseExitVideo,
-                                            child: Stack(
-                                              children: [
-                                                Video(key: videoKey, controller: controller.videoController,fill: Colors.black,),
-                                                Center(
-                                                  child: Rx(() {
-                                                    return AnimatedOpacity(
-                                                      opacity: controller.isPlaying.value ? 0.0 : 1.0,
-                                                      duration: const Duration(milliseconds: 200),
-                                                      child: const Icon(Icons.play_circle_fill, size: 64, color: Colors.white70),
-                                                    );
-                                                  }),
-                                                ),
-                                                Positioned(
-                                                  bottom: 0,
-                                                  left: 0,
-                                                  right: 0,
-                                                  child: IgnorePointer(
-                                                    child: Container(
-                                                      padding: const EdgeInsets.all(20),
-                                                      decoration: BoxDecoration(
-                                                        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.transparent, Colors.black87]),
-                                                      ),
-                                                      child: Column(
-                                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                                        children: [
-                                                          Text(song.name, style: TextStyle(color: Colors.white)),
-                                                          Text("本地音视频", style: TextStyle(color: Colors.white70)),
-                                                        ],
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                                Positioned.fill(
-                                                  child: GestureDetector(
-                                                    behavior: HitTestBehavior.opaque,
-                                                    onTap: () {
-                                                      if (controller.isPlaying.value) {
-                                                        controller.pause();
-                                                      } else {
-                                                        controller.playCurrent();
-                                                      }
-                                                    },
-                                                    onDoubleTap: () async {
-                                                      await videoKey.currentState?.enterFullscreen();
-                                                    },
-                                                  ),
-                                                ),
-
-                                                /// 进度条：可点击、可拖拽 + 悬停显示隐藏
-                                                Positioned(
-                                                  bottom: 0,
-                                                  left: 0,
-                                                  right: 0,
-                                                  child: AnimatedOpacity(
-                                                    opacity: _showProgressBar ? 1.0 : 0.0,
-                                                    duration: _isHoveringVideo ? const Duration(milliseconds: 200) : const Duration(milliseconds: 400),
-                                                    child: MouseRegion(
-                                                      onEnter: (_) {
-                                                        setState(() {
-                                                          _isHoveringVideo = true;
-                                                          _showProgressBar = true;
-                                                        });
-                                                      },
-                                                      onExit: (_) {
-                                                        setState(() => _isHoveringVideo = false);
-                                                        Future.delayed(const Duration(milliseconds: 800), () {
-                                                          if (!_isHoveringVideo && mounted) {
-                                                            setState(() => _showProgressBar = false);
-                                                          }
-                                                        });
-                                                      },
-                                                      child: Padding(
-                                                        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-                                                        child: Rx(() {
-                                                          final position = controller.position.value;
-                                                          final duration = controller.duration.value;
-                                                          double sliderValue = position.inSeconds.toDouble();
-                                                          double maxValue = duration.inSeconds.toDouble();
-                                                          if (sliderValue > maxValue) sliderValue = maxValue;
-
-                                                          return Column(
-                                                            mainAxisAlignment: MainAxisAlignment.end,
-                                                            children: [
-                                                              SliderTheme(
-                                                                data: SliderTheme.of(context).copyWith(
-                                                                  trackHeight: 4,
-                                                                  thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 6),
-                                                                  overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
-                                                                  activeTrackColor: Colors.greenAccent,
-                                                                  inactiveTrackColor: Colors.white24,
-                                                                  thumbColor: Colors.white,
-                                                                ),
-                                                                child: Slider(
-                                                                  value: sliderValue,
-                                                                  max: maxValue > 0 ? maxValue : 1.0,
-                                                                  onChanged: (value) {
-                                                                    controller.seek(Duration(seconds: value.toInt()));
-                                                                  },
-                                                                ),
-                                                              ),
-                                                              Padding(
-                                                                padding: const EdgeInsets.symmetric(horizontal: 12),
-                                                                child: Row(
-                                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                                  children: [
-                                                                    Text(_formatDuration(position), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                                                    Text(_formatDuration(duration), style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                                                                  ],
-                                                                ),
-                                                              ),
-                                                            ],
-                                                          );
-                                                        }),
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        )
-                                      else
-                                        Container(
-                                          height: 380,
-                                          decoration: BoxDecoration(
-                                            image: DecorationImage(image: AssetImage('assets/default_cover.jpg'), fit: BoxFit.cover),
-                                          ),
-                                          child: BackdropFilter(
-                                            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                                            child: Container(color: Colors.black.withOpacity(0.4)),
-                                          ),
-                                        ),
+                                      Icon(Icons.library_music, color: Colors.white60, size: 14),
+                                      SizedBox(width: 4),
+                                      Text("本地音乐", style: TextStyle(color: Colors.white60, fontSize: 11)),
                                     ],
                                   ),
-                                );
-                              }),
+                                ),
+                              ),
                             ),
-                            // Padding(
-                            //   padding: const EdgeInsets.symmetric(horizontal: 16),
-                            //   child: PlayerControls(controller: controller),
-                            // ),
-                            const SizedBox(height: 10),
-                            Expanded(
-                              child: Rx(() {
-                                final list = controller.songs.value;
-                                if (list.isEmpty) {
-                                  return Container();
-                                  //  const Center(
-                                  //   child: Text("列表空空如也，快去导入音乐吧~", style: TextStyle(color: Colors.white, fontSize: 16)),
-                                  // );
-                                }
-                                return ListView.builder(
-                                  padding: const EdgeInsets.all(12),
-                                  controller: controller.scrollController,
-                                  itemCount: list.length,
-                                  itemBuilder: (context, i) {
-                                    final music = list[i];
-                                    return Rx(() {
-                                      final isCurrent = controller.currentIndex.value == i;
-                                      final isPlaying = controller.isPlaying.value;
-                                      return AnimatedScale(
-                                        key: ValueKey(music.path), // 关键修复：添加 ValueKey
-                                        scale: isCurrent ? 1.03 : 1.0,
-                                        duration: const Duration(milliseconds: 180),
-                                        curve: Curves.easeOutCubic,
-                                        child: AnimatedContainer(
-                                          duration: const Duration(milliseconds: 200),
-                                          curve: Curves.easeOutCubic,
-                                          margin: const EdgeInsets.symmetric(vertical: 6),
-                                          decoration: BoxDecoration(
-                                            color: isCurrent ? Colors.greenAccent.withOpacity(0.12) : const Color(0xFF2D2D30),
-                                            borderRadius: BorderRadius.circular(14),
-                                            border: isCurrent ? Border.all(color: Colors.greenAccent.withOpacity(0.55), width: 1.5) : null,
-                                            boxShadow: isCurrent
-                                                ? [BoxShadow(color: Colors.greenAccent.withOpacity(0.25), blurRadius: 12, spreadRadius: 1, offset: const Offset(0, 4))]
-                                                : null,
-                                          ),
-                                          child: Material(
-                                            color: Colors.transparent,
-                                            borderRadius: BorderRadius.circular(14),
-                                            child: ListTile(
-                                              visualDensity: VisualDensity.compact,
-                                              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                                              leading: SizedBox(
-                                                width: 32,
-                                                height: 32,
-                                                child: isCurrent && isPlaying
-                                                    ? const MusicVisualizer(speaking: true, barCount: 5)
-                                                    : const Icon(Icons.music_note, color: Colors.white70, size: 28),
-                                              ),
-                                              title: Text(
-                                                music.name,
-                                                style: TextStyle(color: isCurrent ? Colors.white : Colors.white70, fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal, fontSize: 13),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              trailing: isCurrent
-                                                  ? const Icon(Icons.play_circle_fill, color: Colors.greenAccent, size: 28)
-                                                  : IconButton(
-                                                      icon: const Icon(Icons.close, color: Colors.white38, size: 20),
-                                                      splashRadius: 20,
-                                                      onPressed: () => controller.removeMusic(i),
-                                                    ),
-                                              onTap: () => controller.play(i),
-                                            ),
-                                          ),
-                                        ),
-                                      );
-                                    });
-                                  },
-                                );
-                              }),
+
+                            // 1. 本地视频 按钮
+                            Material(
+                              color: Colors.transparent, // 保持背景透明
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(4), // 悬停变色的圆角
+                                hoverColor: Colors.white.withValues(alpha: 0.1), // 鼠标移入时的背景色
+                                splashColor: Colors.white.withValues(alpha: 0.15), // 点击时的水波纹颜色
+                                onTap: () => controller.loadVideo(),
+                                child: Container(
+                                  height: 32,
+                                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                                  alignment: Alignment.center,
+                                  child: const Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.video_library, color: Colors.white60, size: 14),
+                                      SizedBox(width: 4),
+                                      Text("本地视频", style: TextStyle(color: Colors.white60, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+
+                            // 2. 播放速度 按钮（包裹在 Rx 中以响应速度变化）
+                            Rx(
+                              () => Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(4),
+                                  hoverColor: Colors.white.withValues(alpha: 0.1),
+                                  splashColor: Colors.white.withValues(alpha: 0.15),
+                                  onTap: () => controller.cycleSpeed(),
+                                  child: Container(
+                                    height: 24, // 稍微缩矮一点，更符合小标签/小按钮的视觉
+                                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                                    alignment: Alignment.center,
+                                    child: Text("播放速度 ${controller.playSpeed.value}x", style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ],
+                  ),
                 ),
-              ),
-            ],
+                const CustomWindowButtons(),
+              ],
+            ),
           ),
-        ],
-      ),
-
-      // 或者使用悬浮按钮
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () => controller.scrollToTop(),
-      //   child: const Icon(Icons.arrow_upward),
-      // ),
-    );
+        ),
+      );
+    });
   }
-}
-
-Future<void> _enterFullScreen() async {
-  await videoKey.currentState?.enterFullscreen();
 }
 
 Widget _buildSidebarIconButton({required IconData icon, required Color color, required String tooltip, required VoidCallback onPressed}) {
@@ -407,31 +465,6 @@ Widget _buildSidebarIconButton({required IconData icon, required Color color, re
       onPressed: onPressed,
       padding: EdgeInsets.zero,
       constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
-    ),
-  );
-}
-
-Widget _buildSidebarTile({required IconData icon, required VoidCallback onTap}) {
-  return Tooltip(
-    message: icon == Icons.library_music ? "本地音乐" : "本地视频",
-    child: Material(
-      color: Colors.transparent,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(50),
-        onTap: onTap,
-        hoverColor: Colors.greenAccent.withOpacity(0.15),
-        splashColor: Colors.greenAccent.withOpacity(0.25),
-        child: Container(
-          width: 62,
-          height: 62,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.07),
-            shape: BoxShape.circle,
-            border: Border.all(color: Colors.white.withOpacity(0.15), width: 1.8),
-          ),
-          child: Icon(icon, color: Colors.white70, size: 30),
-        ),
-      ),
     ),
   );
 }
@@ -451,27 +484,21 @@ class CustomWindowButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Rx(
-          () => _buildSidebarIconButton(
-            icon: Icons.push_pin,
-            color: controller.isAlwaysOnTop.value ? Colors.greenAccent : Colors.white70,
-            tooltip: "窗口置顶",
-            onPressed: () async {
-              bool isTop = await windowManager.isAlwaysOnTop();
-              await windowManager.setAlwaysOnTop(!isTop);
-              controller.isAlwaysOnTop.value = !isTop;
-            },
-          ),
+        // Rx(
+        //   () =>
+        _buildSidebarIconButton(
+          icon: Icons.push_pin,
+          color: controller.isAlwaysOnTop.value ? Colors.greenAccent : Colors.white70,
+          tooltip: "窗口置顶",
+          onPressed: () async {
+            bool isTop = await windowManager.isAlwaysOnTop();
+            await windowManager.setAlwaysOnTop(!isTop);
+            controller.isAlwaysOnTop.value = !isTop;
+          },
         ),
+        // ),
         _buildSidebarIconButton(icon: Icons.delete_sweep, color: Colors.white70, tooltip: "清空播放列表", onPressed: () => controller.clearPlaylist()),
-        Rx(
-          () => IconButton(
-            icon: Icon(showSidebar.value ? Icons.swipe_left : Icons.swipe_right, color: Colors.white54),
-            onPressed: () {
-              showSidebar.value = !showSidebar.value;
-            },
-          ),
-        ),
+
         _buildBtn(Icons.horizontal_rule, () => windowManager.minimize()),
         _buildBtn(Icons.crop_square, () async {
           if (await windowManager.isMaximized()) {

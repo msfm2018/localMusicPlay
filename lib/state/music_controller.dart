@@ -16,16 +16,14 @@ class MusicController extends ChangeNotifier {
   final position = Duration.zero.obs;
   final duration = Duration.zero.obs;
   final isAlwaysOnTop = false.obs;
+  final playSpeed = 1.0.obs;
   late final VideoController videoController;
   MusicController() {
     videoController = VideoController(repo.player.player);
     _initStreams();
   }
 
-  // 在 MusicController 类中
-  // 假设你的 repo 里面有一个 media_kit 的 Player 实例
-  Object get player => repo.player.player;
-  // VideoController get videoController => repo.videoController;
+  Player get player => repo.player.player;
   void _initStreams() {
     // 1. 监听进度 (Position)
     repo.player.stream.position.listen((Duration p) {
@@ -63,44 +61,70 @@ class MusicController extends ChangeNotifier {
     return MediaType.unknown;
   }
 
-  // ================== 双击文件打开 ==================
+  // 切换倍速方法：传入指定速度
+  Future<void> setPlaySpeed(double speed) async {
+    playSpeed.value = speed;
+    await repo.player.player.setRate(speed);
+  }
+
+  // 快捷切换常用倍速列表
+  final List<double> speedList = [0.5, 1.0, 1.5, 2.0];
+
+  // 点击循环切换倍速
+  Future<void> cycleSpeed() async {
+    int currentIdx = speedList.indexOf(playSpeed.value);
+    int nextIdx = (currentIdx + 1) % speedList.length;
+    await setPlaySpeed(speedList[nextIdx]);
+  }
+
   Future<void> openFile(String path) async {
     final type = getMediaType(path);
     if (type == MediaType.unknown) return;
+
     songs.value.clear();
     final item = MediaItem(path: path, name: path.split(RegExp(r'[\\/]+')).last, type: type);
     songs.value.insert(0, item);
-    songs.refresh();
+
+    // 先更新索引
     currentIndex.value = 0;
-    // 核心修复：确保在打开媒体前，player 状态是干净的
+    songs.refresh();
+
+    // 打开媒体
     await repo.player.player.open(Media(path));
     isPlaying.value = true;
 
-    // 如果是视频，通知监听者可能需要重绘 Video 组件
     if (type == MediaType.video) {
-      notifyListeners();
+      // 💡 延迟一帧通知，等待 media_kit 底层初始化纹理完成
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 
-  // ================== 多文件加入播放列表 ==================
   Future<void> openFiles(List<String> paths) async {
     if (paths.isEmpty) return;
+    List<MediaItem> tempList = [];
 
     for (var path in paths) {
       final type = getMediaType(path);
       if (type == MediaType.unknown) continue;
-      openFile(path);
-      // songs.value.add(MediaItem(path: path, name: path.split(RegExp(r'[\\/]+')).last, type: type));
+      final item = MediaItem(path: path, name: path.split(RegExp(r'[\\/]+')).last, type: type);
+      tempList.add(item);
     }
 
-    // songs.refresh();
+    if (tempList.isEmpty) return;
+    songs.value.clear();
+    songs.value.addAll(tempList);
+    songs.refresh();
 
-    // // 如果当前没播放，自动播放第一首
-    // if (currentIndex.value == -1 && songs.value.isNotEmpty) {
-    //   currentIndex.value = 0;
-    //   await repo.player.player.open(Media(songs.value[0].path));
-    //   isPlaying.value = true;
-    // }
+    currentIndex.value = 0;
+    await repo.player.player.open(Media(songs.value[0].path));
+    isPlaying.value = true;
+
+    // 💡 加上这一段：如果是视频，通知通知外部组件
+    if (tempList[0].type == MediaType.video) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => notifyListeners());
+    }
   }
 
   void scrollToCurrent() {
@@ -156,27 +180,54 @@ class MusicController extends ChangeNotifier {
   }
 
   MediaItem? get currentSong => currentIndex.value >= 0 && songs.value.isNotEmpty ? songs.value[currentIndex.value] : null;
-
   Future<void> loadMusic() async {
-    await songs.runAsync(() async {
-      final list = await repo.loadMusic();
-      // 加载完成后，如果有歌曲，自动选中第一首
-      if (list.isNotEmpty) {
+    await songs.runAsync(
+      onError: (e) {
+        RxDebug.log("loadMusic error: $e");
+      },
+      asyncAction: () async {
+        final list = await repo.loadMusic();
+
+        // 用户取消选择
+        if (list.isEmpty) {
+          return songs.value;
+        }
+
         currentIndex.value = 0;
-      }
-      return list;
-    });
+
+        await repo.player.player.open(Media(list.first.path));
+
+        isPlaying.value = true;
+
+        return list;
+      },
+    );
   }
 
   Future<void> loadVideo() async {
-    await songs.runAsync(() async {
-      final list = await repo.loadVideo();
-      // 加载完成后，如果有视频，自动选中第一首
-      if (list.isNotEmpty) {
+    await songs.runAsync(
+      onError: (e) {
+        RxDebug.log("loadVideo error: $e");
+      },
+      asyncAction: () async {
+        final list = await repo.loadVideo();
+
+        // 用户取消选择
+        if (list.isEmpty) {
+          return songs.value;
+        }
+
+        await repo.player.player.open(Media(list.first.path));
+        songs.value.clear();
+        songs.value.addAll(list);
         currentIndex.value = 0;
-      }
-      return list;
-    });
+        songs.refresh(); // 手动刷新一次，确保 UI 的 Rx 先转成视频模式
+
+        isPlaying.value = true;
+
+        return list;
+      },
+    );
   }
 
   Future<void> play(int index) async {
