@@ -456,15 +456,29 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-Widget _buildSidebarIconButton({required IconData icon, required Color color, required String tooltip, required VoidCallback onPressed}) {
+
+
+Widget _buildSidebarIconButton({
+  required IconData icon,
+  required Color color,
+  required String tooltip,
+  required VoidCallback onPressed,
+}) {
   return Tooltip(
     message: tooltip,
-    child: IconButton(
-      icon: Icon(icon, color: color, size: 14),
-      splashRadius: 24,
-      onPressed: onPressed,
-      padding: EdgeInsets.zero,
-      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+    child: Material(
+      color: Colors.transparent, // 确保基础背景透明
+      type: MaterialType.circle, // 让悬停和点击波纹呈圆形
+      clipBehavior: Clip.antiAlias,
+      child: IconButton(
+        icon: Icon(icon, color: color, size: 14),
+        hoverColor: Colors.white.withValues(alpha: 0.1), // 鼠标悬停时的背景颜色
+        splashColor: Colors.white.withValues(alpha: 0.2), // 点击时的水波纹颜色
+        highlightColor: Colors.white.withValues(alpha: 0.05), // 长按/按下时的颜色
+        onPressed: onPressed,
+        padding: EdgeInsets.zero,
+        constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+      ),
     ),
   );
 }
@@ -512,11 +526,27 @@ class CustomWindowButtons extends StatelessWidget {
     );
   }
 
+  // Widget _buildBtn(IconData icon, VoidCallback onPressed, {bool isClose = false}) {
+  //   return InkWell(
+  //     onTap: onPressed,
+  //     hoverColor: isClose ? Colors.red : Colors.white10,
+  //     child: SizedBox(width: 46, height: 32, child: Icon(icon, color: Colors.white, size: 16)),
+  //   );
+  // }
+
   Widget _buildBtn(IconData icon, VoidCallback onPressed, {bool isClose = false}) {
-    return InkWell(
+  return Material(
+    color: Colors.transparent, // 保持透明背景
+    child: InkWell(
       onTap: onPressed,
-      hoverColor: isClose ? Colors.red : Colors.white10,
-      child: SizedBox(width: 46, height: 32, child: Icon(icon, color: Colors.white, size: 16)),
-    );
-  }
+      hoverColor: isClose ? Colors.red : Colors.white.withValues(alpha: 0.1), // 悬停时的颜色
+      splashColor: isClose ? Colors.redAccent : Colors.white.withValues(alpha: 0.2), // 点击水波纹颜色
+      child: SizedBox(
+        width: 46,
+        height: 32,
+        child: Icon(icon, color: Colors.white, size: 16),
+      ),
+    ),
+  );
+}
 }
