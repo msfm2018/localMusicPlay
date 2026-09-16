@@ -9,7 +9,7 @@ class MusicController extends ChangeNotifier {
   final repo = MusicRepository();
 
   final ScrollController scrollController = ScrollController();
-
+  bool _isChangingTrack = false;
   final songs = <MediaItem>[].obs;
   final currentIndex = (-1).obs;
   final isPlaying = false.obs;
@@ -41,9 +41,21 @@ class MusicController extends ChangeNotifier {
     });
 
     // 4. 监听播放完成 (Completed)
-    repo.player.stream.completed.listen((bool completed) {
-      if (completed) {
-        next(); // 自动播放下一首
+    // repo.player.stream.completed.listen((bool completed) {
+    //   if (completed) {
+    //     next(); // 自动播放下一首
+    //   }
+    // });
+
+    repo.player.stream.completed.listen((bool completed) async {
+      if (!completed || _isChangingTrack) return;
+
+      _isChangingTrack = true;
+
+      try {
+        await next();
+      } finally {
+        _isChangingTrack = false;
       }
     });
   }
@@ -99,6 +111,37 @@ class MusicController extends ChangeNotifier {
         notifyListeners();
       });
     }
+  }
+
+  /// 获取按文件名数字排序后的音频列表
+  List<MediaItem> get sortedAudioSongs {
+    final list = songs.value.where((item) => item.type != MediaType.video).toList();
+
+    list.sort((a, b) {
+      final numberA = _getNumberFromName(a.name);
+      final numberB = _getNumberFromName(b.name);
+
+      final result = numberA.compareTo(numberB);
+
+      if (result == 0) {
+        return a.name.compareTo(b.name);
+      }
+
+      return result;
+    });
+
+    return list;
+  }
+
+  /// 提取文件名中的数字
+  int _getNumberFromName(String name) {
+    final match = RegExp(r'\d+').firstMatch(name);
+
+    if (match == null) {
+      return 999999;
+    }
+
+    return int.tryParse(match.group(0)!) ?? 999999;
   }
 
   Future<void> openFiles(List<String> paths) async {
@@ -252,7 +295,38 @@ class MusicController extends ChangeNotifier {
   //   currentIndex.value = (currentIndex.value + 1) % songs.value.length;
   //   isPlaying.value = true;
   // }
+  /// 播放排序后的下一首音频
   Future<void> next() async {
+    final audioList = sortedAudioSongs;
+
+    if (audioList.isEmpty) return;
+
+    // 当前正在播放的歌曲
+    final current = currentSong;
+
+    // 找到当前歌曲在排序后的音频列表中的位置
+    final currentAudioIndex = current == null ? -1 : audioList.indexWhere((item) => item.path == current.path);
+
+    // 计算下一首的索引
+    final nextAudioIndex = (currentAudioIndex + 1) % audioList.length;
+
+    final nextItem = audioList[nextAudioIndex];
+
+    // 找到下一首在原始 songs 中的索引
+    final realIndex = songs.value.indexWhere((item) => item.path == nextItem.path);
+
+    if (realIndex < 0) return;
+
+    // 播放下一首
+    await repo.player.player.open(Media(nextItem.path));
+
+    currentIndex.value = realIndex;
+    isPlaying.value = true;
+
+    scrollToCurrent();
+  }
+
+  Future<void> next_() async {
     if (songs.value.isEmpty) return; // 必须有这一行
     await repo.next();
     // 建议先计算新索引再赋值
