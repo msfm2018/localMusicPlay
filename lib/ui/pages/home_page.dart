@@ -46,6 +46,22 @@ class _HomePageState extends State<HomePage> {
     super.dispose();
   }
 
+  int _getNumberFromName(String name) {
+    // 找文件名中出现的第一个数字
+    // 例如：
+    // 第160集.笑傲江湖.mp3 -> 160
+    // 19-笑傲江湖.mp3      -> 19
+    // 001.mp3             -> 1
+
+    final match = RegExp(r'\d+').firstMatch(name);
+
+    if (match == null) {
+      return 999999999;
+    }
+
+    return int.tryParse(match.group(0)!) ?? 999999999;
+  }
+
   @override
   Widget build(BuildContext context) {
     // final song = controller.currentSong;
@@ -60,34 +76,170 @@ class _HomePageState extends State<HomePage> {
             Positioned.fill(
               child: Rx(() {
                 // final song = controller.currentSong;
-           
+
                 // if (song == null) {
                 //   return Image.asset('assets/default_cover.jpg', fit: BoxFit.cover);
                 // }
 
                 final songsList = controller.songs.value;
-        final index = controller.currentIndex.value;
+                final index = controller.currentIndex.value;
 
-        // 💡 核心安全防御：判断索引是否合法、列表是否为空
-        if (index < 0 || songsList.isEmpty || index >= songsList.length) {
-          return Image.asset('assets/default_cover.jpg', fit: BoxFit.cover);
-        }
+                // 💡 核心安全防御：判断索引是否合法、列表是否为空
+                if (index < 0 || songsList.isEmpty || index >= songsList.length) {
+                  return Image.asset('assets/default_cover.jpg', fit: BoxFit.cover);
+                }
 
-        // 安全地取出当前歌曲
-        final song = songsList[index];
+                // 安全地取出当前歌曲
+                final song = songsList[index];
 
                 if (song.type == MediaType.video) {
                   return
                   //  Video(key: videoKey, controller: controller.videoController, fill: Colors.black,fit: BoxFit.fill,);
                   Video(key: ValueKey(song.path), controller: controller.videoController, fill: Colors.black, fit: BoxFit.fill);
+                  // } else {
+                  //   return Container(
+                  //     decoration: const BoxDecoration(
+                  //       image: DecorationImage(image: AssetImage('assets/default_cover.jpg'), fit: BoxFit.cover),
+                  //     ),
+                  //     child: BackdropFilter(
+                  //       filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                  //       child: Container(color: Colors.black.withValues(alpha: 0.4)),
+                  //     ),
+                  //   );
                 } else {
+                  // ==============================
+                  // 音频播放列表
+                  // ==============================
+
+                  // 只拿音频
+                  final audioSongs = controller.songs.value.where((item) => item.type != MediaType.video).toList();
+
+                  // 按文件名中的数字排序
+                  audioSongs.sort((a, b) {
+                    final numberA = _getNumberFromName(a.name);
+                    final numberB = _getNumberFromName(b.name);
+
+                    final result = numberA.compareTo(numberB);
+
+                    // 数字相同，再按名字排序
+                    if (result == 0) {
+                      return a.name.compareTo(b.name);
+                    }
+
+                    return result;
+                  });
+
                   return Container(
-                    decoration: const BoxDecoration(
-                      image: DecorationImage(image: AssetImage('assets/default_cover.jpg'), fit: BoxFit.cover),
-                    ),
-                    child: BackdropFilter(
-                      filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                      child: Container(color: Colors.black.withValues(alpha: 0.4)),
+                    color: const Color(0xfff8f8f8),
+                    child: Column(
+                      children: [
+                        // =========================
+                        // 顶部标题
+                        // =========================
+                        const SizedBox(height: 42),
+
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                          child: Row(
+                            children: [
+                              const Text(
+                                "本地音乐",
+                                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+                              ),
+
+                              const SizedBox(width: 12),
+
+                              Text("${audioSongs.length} 首", style: const TextStyle(fontSize: 13, color: Colors.black45)),
+                            ],
+                          ),
+                        ),
+
+                        const Divider(height: 1),
+
+                        // =========================
+                        // 音频列表
+                        // =========================
+                        Expanded(
+                          child: ListView.builder(
+                            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                            itemCount: audioSongs.length,
+                            itemBuilder: (context, index) {
+                              // 保留你原来的代码
+
+                              final item = audioSongs[index];
+
+                              // 找到这个音频在原 controller.songs 中的位置
+                              final realIndex = controller.songs.value.indexWhere((element) => element.path == item.path);
+
+                              final isCurrent = realIndex == controller.currentIndex.value;
+
+                              return Material(
+                                color: Colors.transparent,
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(8),
+
+                                  // onTap: () async {
+                                  //   if (realIndex < 0) {
+                                  //     return;
+                                  //   }
+
+                                  //   controller.currentIndex.value = realIndex;
+
+                                  //    controller.playCurrent();
+                                  // },
+                                  onTap: () async {
+                                    if (realIndex < 0) return;
+
+                                    await controller.play(realIndex);
+                                  },
+
+                                  child: Container(
+                                    height: 54,
+                                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                                    decoration: BoxDecoration(color: isCurrent ? Colors.orange.withValues(alpha: 0.08) : Colors.transparent, borderRadius: BorderRadius.circular(8)),
+
+                                    child: Row(
+                                      children: [
+                                        // 序号
+                                        SizedBox(
+                                          width: 42,
+                                          child: Text("${index + 1}", style: TextStyle(fontSize: 13, color: isCurrent ? Colors.deepOrange : Colors.black45)),
+                                        ),
+
+                                        // 音乐图标
+                                        Icon(isCurrent ? Icons.volume_up : Icons.music_note, size: 18, color: isCurrent ? Colors.deepOrange : Colors.black45),
+
+                                        const SizedBox(width: 12),
+
+                                        // 文件名
+                                        Expanded(
+                                          child: Text(
+                                            item.name,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: isCurrent ? Colors.deepOrange : Colors.black87,
+                                              fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                                            ),
+                                          ),
+                                        ),
+
+                                        // 当前播放状态
+                                        if (isCurrent)
+                                          const Padding(
+                                            padding: EdgeInsets.only(left: 12),
+                                            child: Text("正在播放", style: TextStyle(fontSize: 12, color: Colors.deepOrange)),
+                                          ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }
@@ -220,6 +372,47 @@ class _HomePageState extends State<HomePage> {
               left: 0,
               right: 0,
               child: buildToBar(), // 里面使用上次给你的 Stack + DragToMoveArea 即可
+            ),
+
+            // 底部播放进度条
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                color: Colors.black.withOpacity(0.65),
+                child: Rx(() {
+                  final position = controller.position.value;
+                  final duration = controller.duration.value;
+
+                  final totalMs = duration.inMilliseconds;
+                  final currentMs = position.inMilliseconds;
+
+                  final maxValue = totalMs > 0 ? totalMs.toDouble() : 1.0;
+
+                  final sliderValue = currentMs.clamp(0, totalMs > 0 ? totalMs : 1).toDouble();
+
+                  return Row(
+                    children: [
+                      Text(_formatDuration(position), style: const TextStyle(color: Colors.white, fontSize: 12)),
+
+                      Expanded(
+                        child: Slider(
+                          min: 0,
+                          max: maxValue,
+                          value: sliderValue,
+                          onChanged: (value) {
+                            controller.seek(Duration(milliseconds: value.toInt()));
+                          },
+                        ),
+                      ),
+
+                      Text(_formatDuration(duration), style: const TextStyle(color: Colors.white, fontSize: 12)),
+                    ],
+                  );
+                }),
+              ),
             ),
           ],
         ),
@@ -456,14 +649,7 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-
-
-Widget _buildSidebarIconButton({
-  required IconData icon,
-  required Color color,
-  required String tooltip,
-  required VoidCallback onPressed,
-}) {
+Widget _buildSidebarIconButton({required IconData icon, required Color color, required String tooltip, required VoidCallback onPressed}) {
   return Tooltip(
     message: tooltip,
     child: Material(
@@ -535,18 +721,14 @@ class CustomWindowButtons extends StatelessWidget {
   // }
 
   Widget _buildBtn(IconData icon, VoidCallback onPressed, {bool isClose = false}) {
-  return Material(
-    color: Colors.transparent, // 保持透明背景
-    child: InkWell(
-      onTap: onPressed,
-      hoverColor: isClose ? Colors.red : Colors.white.withValues(alpha: 0.1), // 悬停时的颜色
-      splashColor: isClose ? Colors.redAccent : Colors.white.withValues(alpha: 0.2), // 点击水波纹颜色
-      child: SizedBox(
-        width: 46,
-        height: 32,
-        child: Icon(icon, color: Colors.white, size: 16),
+    return Material(
+      color: Colors.transparent, // 保持透明背景
+      child: InkWell(
+        onTap: onPressed,
+        hoverColor: isClose ? Colors.red : Colors.white.withValues(alpha: 0.1), // 悬停时的颜色
+        splashColor: isClose ? Colors.redAccent : Colors.white.withValues(alpha: 0.2), // 点击水波纹颜色
+        child: SizedBox(width: 46, height: 32, child: Icon(icon, color: Colors.white, size: 16)),
       ),
-    ),
-  );
-}
+    );
+  }
 }
